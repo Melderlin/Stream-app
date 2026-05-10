@@ -24,11 +24,20 @@
     animation: bgMove 12s ease infinite;
     display: flex; align-items: center; justify-content: center;
     font-size: 80px; opacity: 0.9;
+    overflow: hidden;
   }
+  #video video {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: cover;
+    display: block;
+  }
+  #video.off video { display: none; }
   #video.off { background: #000 !important; animation: none; }
-  #video.off::after { content: "📷 摄像头已关闭"; font-size: 20px; opacity: 0.7; }
-  #video > .streamer-emoji { font-size: 120px; filter: drop-shadow(0 4px 20px rgba(0,0,0,0.5)); }
-  #video.off > .streamer-emoji { display: none; }
+  #video.off::after { content: "📷 摄像头已关闭"; font-size: 20px; opacity: 0.7; position: absolute; z-index: 2; }
+  #video:not(.off)::after { display: none; }
+  #video > .streamer-emoji { font-size: 120px; filter: drop-shadow(0 4px 20px rgba(0,0,0,0.5)); z-index: 1; }
+  #video.off > .streamer-emoji { display: block; }
+  #video:not(.off) > .streamer-emoji { display: none; }
   @keyframes bgMove { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 
   /* === Верхняя панель === */
@@ -36,17 +45,20 @@
     position: absolute; top: 0; left: 0; right: 0; padding: 40px 12px 10px;
     display: flex; align-items: center; gap: 8px; z-index: 10;
     background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+    flex-wrap: nowrap;
   }
   .streamer { display: flex; align-items: center; background: rgba(0,0,0,0.4);
-    border-radius: 30px; padding: 4px 10px 4px 4px; gap: 6px; }
+    border-radius: 30px; padding: 4px 10px 4px 4px; gap: 6px; flex-shrink: 0; }
   .streamer img { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #ff4d6d; }
-  .streamer .name { font-size: 13px; font-weight: 600; }
+  .streamer .name { font-size: 13px; font-weight: 600; white-space: nowrap; }
   .streamer .live-tag { background: #ff2c55; color: #fff; font-size: 10px; padding: 2px 6px;
     border-radius: 4px; margin-left: 4px; font-weight: 700; }
-  .viewers { background: rgba(0,0,0,0.4); padding: 6px 10px; border-radius: 30px; font-size: 12px; }
-  .top-actions { margin-left: auto; display: flex; gap: 6px; }
+  .viewers { background: rgba(0,0,0,0.4); padding: 6px 10px; border-radius: 30px; font-size: 12px;
+    flex-shrink: 0; white-space: nowrap; min-width: 80px; }
+  .viewers span { display: inline-block; text-align: center; min-width: 45px; white-space: nowrap; }
+  .top-actions { margin-left: auto; display: flex; gap: 6px; flex-shrink: 0; }
   .top-actions button { background: rgba(0,0,0,0.4); border: none; color: #fff;
-    padding: 6px 10px; border-radius: 30px; font-size: 12px; cursor: pointer; }
+    padding: 6px 10px; border-radius: 30px; font-size: 12px; cursor: pointer; white-space: nowrap; }
   .follow-btn { background: #ff2c55 !important; font-weight: 600; }
 
   /* === Бегущая строка подарков === */
@@ -64,7 +76,7 @@
   .top-donate {
     position: absolute; top: 125px; left: 8px;
     background: rgba(0,0,0,0.4); padding: 4px 8px; border-radius: 12px;
-    font-size: 11px; z-index: 9;
+    font-size: 11px; z-index: 9; white-space: nowrap;
   }
 
   /* === Чат === */
@@ -79,7 +91,9 @@
     margin-top: 6px; font-size: 13px; max-width: 90%;
     animation: msgIn 0.4s ease; word-break: break-word;
     display: flex; align-items: flex-start; gap: 6px;
+    transition: opacity 0.5s ease, transform 0.5s ease;
   }
+  .msg.fade-out { opacity: 0; transform: translateX(20px); pointer-events: none; }
   .msg img { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
   .msg .name { color: #ffd700; font-weight: 600; margin-right: 4px; }
   .msg .name.host { color: #ff4d6d; }
@@ -88,14 +102,14 @@
   @keyframes msgIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
   /* === Поток сердечек === */
-  #hearts { position: absolute; right: 0; bottom: 60px; width: 80px; height: 70vh;
+  #hearts { position: absolute; right: 0; bottom: 60px; width: 180px; height: 75vh;
     pointer-events: none; z-index: 8; overflow: hidden; }
-  .heart-fly { position: absolute; bottom: 0; right: 20px; font-size: 24px;
+  .heart-fly { position: absolute; bottom: 0; right: 5px; font-size: 24px;
     animation: heartFly 3.5s ease-out forwards; }
   @keyframes heartFly {
     0% { transform: translate(0,0) scale(0.5); opacity: 0; }
     15% { opacity: 1; transform: translate(0,-50px) scale(1); }
-    100% { transform: translate(var(--x,-30px),-70vh) scale(1.2); opacity: 0; }
+    100% { transform: translate(var(--x,-30px),-75vh) scale(1.2); opacity: 0; }
   }
 
   /* === Нижняя панель === */
@@ -138,7 +152,10 @@
 <body>
 
 <div id="app">
-  <div id="video"><div class="streamer-emoji">💃</div></div>
+  <div id="video">
+    <video id="videoElement" autoplay playsinline muted></video>
+    <div class="streamer-emoji">💃</div>
+  </div>
 
   <div class="top-bar">
     <div class="streamer">
@@ -163,7 +180,9 @@
   <div id="hearts"></div>
 
   <div class="corner-btns">
-    <button id="camBtn" title="摄像头">📷</button>
+    <button id="camBtn" title="摄像头开关">📷</button>
+    <button id="switchCamBtn" title="切换前后摄像头">🔄</button>
+    <button id="muteBtn" title="静音切换">🔊</button>
     <button id="fsBtn" title="全屏">⛶</button>
   </div>
 
@@ -183,13 +202,13 @@
 ============================================================ */
 const CONFIG = {
   USER_COUNT: 112,
-  MIN_USER_INTERVAL: 30000,   // 30 сек между сообщениями одного юзера
+  MIN_USER_INTERVAL: 30000,
   LIKE_PROBABILITY: 0.20,
-  PHASE1_DURATION: 2 * 60,    // 0-2 мин: 0 зрителей
-  PHASE2_DURATION: 8 * 60,    // 2-10 мин: рост до 35
+  PHASE1_DURATION: 2 * 60,
+  PHASE2_DURATION: 8 * 60,
   PHASE2_TARGET: 35,
-  PHASE3_TARGET: 8000,        // финальный пик
-  PHASE3_DURATION: 25 * 60,   // 30-40 мин с момента 10й
+  PHASE3_TARGET: 8000,
+  PHASE3_DURATION: 25 * 60,
   MIN_VIEWERS_CMD2: 58,
   MIN_MSG_PER_MIN_CMD2: 35
 };
@@ -201,11 +220,14 @@ const state = {
   startTime: Date.now(),
   viewers: 0,
   targetViewers: 0,
-  growthMultiplier: 1.0,   // команда 1 увеличивает, 2 уменьшает
+  growthMultiplier: 1.0,
   freqMultiplier: 1.0,
   msgInLastMinute: [],
   likesInLastSec: 0,
-  cameraOn: true
+  cameraOn: false,
+  cameraFacing: 'user', // 'user' (передняя) или 'environment' (задняя)
+  audioMuted: false,
+  stream: null
 };
 
 /* ============================================================
@@ -231,7 +253,6 @@ for (let i = 0; i < CONFIG.USER_COUNT; i++) {
 
 /* ============================================================
    ИСТОЧНИК КОММЕНТАРИЕВ
-   Если comments.js подключён - используем его, иначе fallback
 ============================================================ */
 const fallbackComments = [
   "主播好棒！❤️","太可爱了😍","加油加油！","Love it! 👍","666666",
@@ -239,15 +260,105 @@ const fallbackComments = [
 ];
 const COMMENTS = (typeof commentsList !== 'undefined' && commentsList.length) ? commentsList : fallbackComments;
 
-const randomEmojis = ["😂","❤️","🔥","👍","🌹","😍","✨","🎉","💖","👏"];
+/* ============================================================
+   КАМЕРА
+============================================================ */
+const videoElement = document.getElementById('videoElement');
+const videoContainer = document.getElementById('video');
+
+async function startCamera(facingMode = 'user') {
+  stopCamera(); // остановить предыдущий поток
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { exact: facingMode } },
+      audio: true
+    });
+    state.stream = stream;
+    videoElement.srcObject = stream;
+    videoElement.muted = state.audioMuted;
+    state.cameraOn = true;
+    state.cameraFacing = facingMode;
+    videoContainer.classList.remove('off');
+    showToast(facingMode === 'user' ? '📷 前置摄像头已开启' : '📷 后置摄像头已开启');
+    updateMuteButton();
+  } catch (e) {
+    // если exact не сработал, пробуем без exact
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facingMode },
+        audio: true
+      });
+      state.stream = stream;
+      videoElement.srcObject = stream;
+      videoElement.muted = state.audioMuted;
+      state.cameraOn = true;
+      state.cameraFacing = facingMode;
+      videoContainer.classList.remove('off');
+      showToast(facingMode === 'user' ? '📷 前置摄像头已开启' : '📷 后置摄像头已开启');
+      updateMuteButton();
+    } catch (e2) {
+      showToast('❌ 无法访问摄像头: ' + (e2.message || '请检查权限'));
+      state.cameraOn = false;
+      videoContainer.classList.add('off');
+    }
+  }
+}
+
+function stopCamera() {
+  if (state.stream) {
+    state.stream.getTracks().forEach(track => track.stop());
+    state.stream = null;
+  }
+  videoElement.srcObject = null;
+  state.cameraOn = false;
+  videoContainer.classList.add('off');
+  updateMuteButton();
+}
+
+function toggleCamera() {
+  if (state.cameraOn) {
+    stopCamera();
+    showToast('📷 摄像头已关闭');
+  } else {
+    startCamera(state.cameraFacing);
+  }
+}
+
+function switchCamera() {
+  if (!state.cameraOn) {
+    showToast('⚠️ 请先开启摄像头');
+    return;
+  }
+  const newFacing = state.cameraFacing === 'user' ? 'environment' : 'user';
+  startCamera(newFacing);
+}
+
+/* ============================================================
+   MUTE
+============================================================ */
+const muteBtn = document.getElementById('muteBtn');
+function toggleMute() {
+  state.audioMuted = !state.audioMuted;
+  if (videoElement) videoElement.muted = state.audioMuted;
+  updateMuteButton();
+}
+
+function updateMuteButton() {
+  if (!state.cameraOn) {
+    muteBtn.textContent = '🔇';
+    return;
+  }
+  muteBtn.textContent = state.audioMuted ? '🔇' : '🔊';
+}
+
+muteBtn.onclick = toggleMute;
 
 /* ============================================================
    VIEWERS — динамика зрителей
 ============================================================ */
 function updateViewers() {
-  const elapsed = (Date.now() - state.startTime) / 1000; // сек
+  const elapsed = (Date.now() - state.startTime) / 1000;
 
-  // вычисляем "натуральную" цель
   let target;
   if (elapsed < CONFIG.PHASE1_DURATION) {
     target = 0;
@@ -256,29 +367,21 @@ function updateViewers() {
     target = t * CONFIG.PHASE2_TARGET;
   } else {
     const t = Math.min(1, (elapsed - CONFIG.PHASE1_DURATION - CONFIG.PHASE2_DURATION) / CONFIG.PHASE3_DURATION);
-    // логистический рост
     const k = 6;
     const logistic = 1 / (1 + Math.exp(-k * (t - 0.5)));
     target = CONFIG.PHASE2_TARGET + (CONFIG.PHASE3_TARGET - CONFIG.PHASE2_TARGET) * logistic;
   }
 
-  // применяем мультипликатор роста (команды)
   target *= state.growthMultiplier;
   state.targetViewers = Math.max(0, target);
 
-  // Плавное движение к target
   const diff = state.targetViewers - state.viewers;
-  // Скорость подгона: 5% за тик + ограничение
   state.viewers += diff * 0.05;
   if (Math.abs(diff) < 0.5) state.viewers = state.targetViewers;
 
-  // Граничное условие cmd2: не ниже 58 (если уже было больше)
-  if (state.viewers > 0 && state.viewers < CONFIG.MIN_VIEWERS_CMD2 && state.targetViewers >= CONFIG.MIN_VIEWERS_CMD2) {
-    // ничего, target сам тянет
-  }
-
   document.getElementById('viewerCount').textContent = formatNumber(Math.floor(state.viewers));
 }
+
 function formatNumber(n) {
   if (n >= 10000) return (n/10000).toFixed(1) + '万';
   return n.toString();
@@ -305,35 +408,33 @@ function addMessage({name, avatar, text, isHost = false, liked = false}) {
   `;
   chatEl.appendChild(div);
 
-  // Лимит сообщений в DOM
-  while (chatEl.children.length > 30) chatEl.removeChild(chatEl.firstChild);
+  // Автоматическое удаление через 7 секунд
+  setTimeout(() => {
+    if (div.parentNode) {
+      div.classList.add('fade-out');
+      setTimeout(() => {
+        if (div.parentNode) div.remove();
+      }, 500);
+    }
+  }, 7000);
 
   // Запись для статистики
   state.msgInLastMinute.push(Date.now());
 }
+
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function tickChat() {
-  // если нет зрителей - не пишем
   if (state.viewers < 1) return;
 
-  // активные авторы пропорциональны зрителям, но <= 112
   const activeUsers = Math.min(CONFIG.USER_COUNT, Math.max(1, Math.floor(state.viewers / 30) + 1));
-
-  // Сколько сообщений в секунду должно быть
-  // от 1-2/мин (мало зрителей) до 200+/мин (пик)
   const targetPerMin = Math.min(250, Math.max(1, state.viewers * 0.04)) * state.freqMultiplier;
-  const perTick = targetPerMin / 60; // мы тикаем раз в секунду
-
-  // Граница cmd2
   const effectivePerMin = Math.max(state.freqMultiplier < 1 ? CONFIG.MIN_MSG_PER_MIN_CMD2 : 0, targetPerMin);
   const adjustedPerTick = effectivePerMin / 60;
 
-  // Случайно решаем, сколько сообщений выдать в этот тик
   let toSend = Math.floor(adjustedPerTick) + (Math.random() < (adjustedPerTick % 1) ? 1 : 0);
 
   for (let i = 0; i < toSend; i++) {
-    // Берём случайного юзера из активного пула
     const candidates = users.slice(0, activeUsers);
     const u = candidates[Math.floor(Math.random() * candidates.length)];
     if (!u) continue;
@@ -348,25 +449,26 @@ function tickChat() {
 }
 
 /* ============================================================
-   LIKES — поток сердечек
+   LIKES — поток сердечек (только ❤️ разных цветов)
 ============================================================ */
 const heartsEl = document.getElementById('hearts');
-const heartIcons = ['❤️','💖','💕','💗','💘','🌹','✨'];
+const heartIcons = ['❤️','💖','💕','💗','💘','💝','💓','❤️‍🔥','💞'];
 
 function spawnHeart() {
   const h = document.createElement('div');
   h.className = 'heart-fly';
   h.textContent = heartIcons[Math.floor(Math.random()*heartIcons.length)];
   h.style.setProperty('--x', (Math.random()*120 - 60) + 'px');
-  h.style.right = (Math.random()*40 + 5) + 'px';
-  h.style.color = `hsl(${Math.random()*60+330}, 80%, 65%)`;
+  h.style.right = (Math.random()*160 + 5) + 'px';
+  h.style.color = `hsl(${Math.random()*30+330}, 85%, 65%)`;
   heartsEl.appendChild(h);
   setTimeout(() => h.remove(), 3500);
 }
 
 function tickLikes() {
-  // лайков в секунду = зрители / 50
-  const n = Math.floor(state.viewers / 50);
+  if (state.viewers < 1) return;
+  // Начинаем с первого зрителя: 1 лайк на 8 зрителей, минимум 1 лайк/сек
+  const n = Math.max(1, Math.floor(state.viewers / 8));
   state.likesInLastSec = n;
   for (let i = 0; i < Math.min(n, 30); i++) {
     setTimeout(spawnHeart, Math.random() * 1000);
@@ -398,7 +500,7 @@ function smoothMultiplier(field, from, to, duration) {
   const key = field === 'growth' ? 'growthMultiplier' : 'freqMultiplier';
   function step(now) {
     const t = Math.min(1, (now - start) / duration);
-    const eased = t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; // easeInOutQuad
+    const eased = t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
     state[key] = from + (to - from) * eased;
     if (t < 1) requestAnimationFrame(step);
   }
@@ -427,11 +529,7 @@ input.addEventListener('keydown', e => { if (e.key === 'Enter') sendHostMessage(
 /* ============================================================
    ОСТАЛЬНЫЕ КНОПКИ
 ============================================================ */
-/* ============================================================
-   ОСТАЛЬНЫЕ КНОПКИ
-============================================================ */
 document.getElementById('likeBtn').onclick = () => {
-  // При клике хоста на сердечко - всплеск лайков
   for (let i = 0; i < 8; i++) setTimeout(spawnHeart, i * 80);
 };
 
@@ -453,12 +551,8 @@ document.getElementById('giftBtn').onclick = () => {
 };
 
 /* === Камера toggle === */
-const videoEl = document.getElementById('video');
-document.getElementById('camBtn').onclick = () => {
-  state.cameraOn = !state.cameraOn;
-  videoEl.classList.toggle('off', !state.cameraOn);
-  showToast(state.cameraOn ? '📷 摄像头已开启' : '📷 摄像头已关闭');
-};
+document.getElementById('camBtn').onclick = toggleCamera;
+document.getElementById('switchCamBtn').onclick = switchCamera;
 
 /* === Полноэкранный режим === */
 document.getElementById('fsBtn').onclick = () => {
@@ -507,7 +601,6 @@ function mainTick() {
   tickChat();
   tickLikes();
 
-  // очищаем статистику сообщений > 60 сек
   const cutoff = Date.now() - 60000;
   state.msgInLastMinute = state.msgInLastMinute.filter(t => t > cutoff);
 }
