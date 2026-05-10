@@ -81,8 +81,9 @@
 
   /* === Чат === */
   #chat {
-    position: absolute; left: 8px; right: 60px; bottom: 70px;
-    max-height: 45vh; overflow: hidden;
+    position: absolute; left: 8px; right: 60px; bottom: 75px; /* освобождаем место для нижней панели */
+    max-height: 35vh; /* меньше высота на мобильных */
+    overflow: hidden;
     display: flex; flex-direction: column; justify-content: flex-end;
     z-index: 10; pointer-events: none;
   }
@@ -102,22 +103,22 @@
   @keyframes msgIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
   /* === Поток сердечек === */
-  #hearts { position: absolute; right: 0; bottom: 60px; width: 180px; height: 75vh;
+  #hearts { position: absolute; right: 0; bottom: 60px; width: 180px; height: 70vh;
     pointer-events: none; z-index: 8; overflow: hidden; }
   .heart-fly { position: absolute; bottom: 0; right: 5px; font-size: 24px;
     animation: heartFly 3.5s ease-out forwards; }
   @keyframes heartFly {
     0% { transform: translate(0,0) scale(0.5); opacity: 0; }
     15% { opacity: 1; transform: translate(0,-50px) scale(1); }
-    100% { transform: translate(var(--x,-30px),-75vh) scale(1.2); opacity: 0; }
+    100% { transform: translate(var(--x,-30px),-70vh) scale(1.2); opacity: 0; }
   }
 
   /* === Нижняя панель === */
   .bottom-bar {
     position: absolute; bottom: 0; left: 0; right: 0;
-    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
-    display: flex; gap: 6px; align-items: center; z-index: 11;
-    background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 8px));
+    display: flex; gap: 6px; align-items: center; z-index: 20; /* выше чата и сердечек */
+    background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
   }
   #msgInput {
     flex: 1; background: rgba(255,255,255,0.15); border: none; color: #fff;
@@ -131,7 +132,7 @@
   }
   .icon-btn.like { background: rgba(255,44,85,0.3); }
 
-  /* === Кнопка фуллскрин и cam === */
+  /* === Кнопки справа (камера, звук, фулскрин) === */
   .corner-btns { position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
     display: flex; flex-direction: column; gap: 8px; z-index: 11; }
   .corner-btns button {
@@ -193,7 +194,7 @@
   </div>
 </div>
 
-<!-- Подключаем твой файл с комментариями -->
+<!-- Подключаем файл с комментариями, если есть -->
 <script src="comments.js"></script>
 
 <script>
@@ -225,13 +226,13 @@ const state = {
   msgInLastMinute: [],
   likesInLastSec: 0,
   cameraOn: false,
-  cameraFacing: 'user', // 'user' (передняя) или 'environment' (задняя)
+  cameraFacing: 'user',
   audioMuted: false,
   stream: null
 };
 
 /* ============================================================
-   ПОЛЬЗОВАТЕЛИ (генерация 112 шт.)
+   ПОЛЬЗОВАТЕЛИ
 ============================================================ */
 const cnNames = ["小明","花花","可爱多","大宝","糖糖","阿强","萌萌","奶茶","小仙女","风的孩子",
   "夜空","月亮","星辰","橙子","柚子","西瓜","苹果","樱桃","蜜桃","柠檬",
@@ -267,41 +268,48 @@ const videoElement = document.getElementById('videoElement');
 const videoContainer = document.getElementById('video');
 
 async function startCamera(facingMode = 'user') {
-  stopCamera(); // остановить предыдущий поток
+  stopCamera();
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { exact: facingMode } },
       audio: true
     });
-    state.stream = stream;
-    videoElement.srcObject = stream;
-    videoElement.muted = state.audioMuted;
-    state.cameraOn = true;
-    state.cameraFacing = facingMode;
-    videoContainer.classList.remove('off');
-    showToast(facingMode === 'user' ? '📷 前置摄像头已开启' : '📷 后置摄像头已开启');
-    updateMuteButton();
+    applyStream(stream, facingMode);
   } catch (e) {
-    // если exact не сработал, пробуем без exact
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: facingMode },
         audio: true
       });
-      state.stream = stream;
-      videoElement.srcObject = stream;
-      videoElement.muted = state.audioMuted;
-      state.cameraOn = true;
-      state.cameraFacing = facingMode;
-      videoContainer.classList.remove('off');
-      showToast(facingMode === 'user' ? '📷 前置摄像头已开启' : '📷 后置摄像头已开启');
-      updateMuteButton();
+      applyStream(stream, facingMode);
     } catch (e2) {
-      showToast('❌ 无法访问摄像头: ' + (e2.message || '请检查权限'));
-      state.cameraOn = false;
-      videoContainer.classList.add('off');
+      handleCameraError(e2);
     }
   }
+}
+
+function applyStream(stream, facingMode) {
+  state.stream = stream;
+  videoElement.srcObject = stream;
+  videoElement.muted = state.audioMuted;
+  state.cameraOn = true;
+  state.cameraFacing = facingMode;
+  videoContainer.classList.remove('off');
+  showToast(facingMode === 'user' ? '📷 前置摄像头已开启' : '📷 后置摄像头已开启');
+  updateMuteButton();
+}
+
+function handleCameraError(error) {
+  state.cameraOn = false;
+  videoContainer.classList.add('off');
+  if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+    showToast('❌ Доступ к камере запрещён. Разрешите в настройках браузера и попробуйте снова.');
+  } else if (error.name === 'NotFoundError') {
+    showToast('❌ Камера не найдена.');
+  } else {
+    showToast('❌ Ошибка камеры: ' + (error.message || 'неизвестная ошибка'));
+  }
+  console.error('Camera error:', error);
 }
 
 function stopCamera() {
@@ -350,15 +358,13 @@ function updateMuteButton() {
   }
   muteBtn.textContent = state.audioMuted ? '🔇' : '🔊';
 }
-
 muteBtn.onclick = toggleMute;
 
 /* ============================================================
-   VIEWERS — динамика зрителей
+   VIEWERS
 ============================================================ */
 function updateViewers() {
   const elapsed = (Date.now() - state.startTime) / 1000;
-
   let target;
   if (elapsed < CONFIG.PHASE1_DURATION) {
     target = 0;
@@ -371,14 +377,11 @@ function updateViewers() {
     const logistic = 1 / (1 + Math.exp(-k * (t - 0.5)));
     target = CONFIG.PHASE2_TARGET + (CONFIG.PHASE3_TARGET - CONFIG.PHASE2_TARGET) * logistic;
   }
-
   target *= state.growthMultiplier;
   state.targetViewers = Math.max(0, target);
-
   const diff = state.targetViewers - state.viewers;
   state.viewers += diff * 0.05;
   if (Math.abs(diff) < 0.5) state.viewers = state.targetViewers;
-
   document.getElementById('viewerCount').textContent = formatNumber(Math.floor(state.viewers));
 }
 
@@ -407,18 +410,12 @@ function addMessage({name, avatar, text, isHost = false, liked = false}) {
     <div><span class="name${isHost?' host':''}">${escapeHtml(name)}:</span>${escapeHtml(text)}${liked ? '<span class="heart">❤️</span>' : ''}</div>
   `;
   chatEl.appendChild(div);
-
-  // Автоматическое удаление через 7 секунд
   setTimeout(() => {
     if (div.parentNode) {
       div.classList.add('fade-out');
-      setTimeout(() => {
-        if (div.parentNode) div.remove();
-      }, 500);
+      setTimeout(() => { if (div.parentNode) div.remove(); }, 500);
     }
   }, 7000);
-
-  // Запись для статистики
   state.msgInLastMinute.push(Date.now());
 }
 
@@ -426,20 +423,16 @@ function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;'
 
 function tickChat() {
   if (state.viewers < 1) return;
-
   const activeUsers = Math.min(CONFIG.USER_COUNT, Math.max(1, Math.floor(state.viewers / 30) + 1));
   const targetPerMin = Math.min(250, Math.max(1, state.viewers * 0.04)) * state.freqMultiplier;
   const effectivePerMin = Math.max(state.freqMultiplier < 1 ? CONFIG.MIN_MSG_PER_MIN_CMD2 : 0, targetPerMin);
   const adjustedPerTick = effectivePerMin / 60;
-
   let toSend = Math.floor(adjustedPerTick) + (Math.random() < (adjustedPerTick % 1) ? 1 : 0);
-
   for (let i = 0; i < toSend; i++) {
     const candidates = users.slice(0, activeUsers);
     const u = candidates[Math.floor(Math.random() * candidates.length)];
     if (!u) continue;
     if (Date.now() - u.lastMessageTime < CONFIG.MIN_USER_INTERVAL) continue;
-
     u.lastMessageTime = Date.now();
     const text = pickRandomComment();
     const liked = Math.random() < CONFIG.LIKE_PROBABILITY;
@@ -449,7 +442,7 @@ function tickChat() {
 }
 
 /* ============================================================
-   LIKES — поток сердечек (только ❤️ разных цветов)
+   LIKES
 ============================================================ */
 const heartsEl = document.getElementById('hearts');
 const heartIcons = ['❤️','💖','💕','💗','💘','💝','💓','❤️‍🔥','💞'];
@@ -467,7 +460,6 @@ function spawnHeart() {
 
 function tickLikes() {
   if (state.viewers < 1) return;
-  // Начинаем с первого зрителя: 1 лайк на 8 зрителей, минимум 1 лайк/сек
   const n = Math.max(1, Math.floor(state.viewers / 8));
   state.likesInLastSec = n;
   for (let i = 0; i < Math.min(n, 30); i++) {
@@ -532,7 +524,6 @@ input.addEventListener('keydown', e => { if (e.key === 'Enter') sendHostMessage(
 document.getElementById('likeBtn').onclick = () => {
   for (let i = 0; i < 8; i++) setTimeout(spawnHeart, i * 80);
 };
-
 document.getElementById('shareBtn').onclick = () => showToast('📤 已复制分享链接');
 document.getElementById('followBtn').onclick = (e) => {
   const btn = e.currentTarget;
@@ -550,11 +541,8 @@ document.getElementById('giftBtn').onclick = () => {
   for (let i = 0; i < 15; i++) setTimeout(spawnHeart, i * 60);
 };
 
-/* === Камера toggle === */
 document.getElementById('camBtn').onclick = toggleCamera;
 document.getElementById('switchCamBtn').onclick = switchCamera;
-
-/* === Полноэкранный режим === */
 document.getElementById('fsBtn').onclick = () => {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen?.().catch(() => {});
@@ -575,7 +563,7 @@ function showToast(text) {
 }
 
 /* ============================================================
-   БЕГУЩАЯ СТРОКА ПОДАРКОВ
+   БЕГУЩАЯ СТРОКА
 ============================================================ */
 const giftMessages = [
   "🎁 大佬666 送出 99 朵玫瑰！",
@@ -600,13 +588,11 @@ function mainTick() {
   updateViewers();
   tickChat();
   tickLikes();
-
   const cutoff = Date.now() - 60000;
   state.msgInLastMinute = state.msgInLastMinute.filter(t => t > cutoff);
 }
 setInterval(mainTick, 1000);
 
-/* === Дебаг-вывод раз в 5 сек === */
 setInterval(() => {
   console.log(
     `[STATS] 👁 viewers=${Math.floor(state.viewers)} | ` +
@@ -620,7 +606,6 @@ setInterval(() => {
    СТАРТ
 ============================================================ */
 console.log('🎬 Live stream simulation started');
-console.log(`💬 Loaded ${COMMENTS.length} comments from comments.js`);
 console.log('Commands: type "1" to boost, "2" to slow down');
 </script>
 
