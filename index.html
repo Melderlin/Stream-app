@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>抖音直播</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color: #fff;
+    user-select: none; }
+
+  #app { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+
+  /* === Видео (фон) === */
+  #video {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, #ff4d6d, #c9184a, #590d22);
+    background-size: 400% 400%;
+    animation: bgMove 12s ease infinite;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 80px; opacity: 0.9;
+  }
+  #video.off { background: #000 !important; animation: none; }
+  #video.off::after { content: "📷 摄像头已关闭"; font-size: 20px; opacity: 0.7; }
+  #video > .streamer-emoji { font-size: 120px; filter: drop-shadow(0 4px 20px rgba(0,0,0,0.5)); }
+  #video.off > .streamer-emoji { display: none; }
+  @keyframes bgMove { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+  /* === Верхняя панель === */
+  .top-bar {
+    position: absolute; top: 0; left: 0; right: 0; padding: 40px 12px 10px;
+    display: flex; align-items: center; gap: 8px; z-index: 10;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+  }
+  .streamer { display: flex; align-items: center; background: rgba(0,0,0,0.4);
+    border-radius: 30px; padding: 4px 10px 4px 4px; gap: 6px; }
+  .streamer img { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #ff4d6d; }
+  .streamer .name { font-size: 13px; font-weight: 600; }
+  .streamer .live-tag { background: #ff2c55; color: #fff; font-size: 10px; padding: 2px 6px;
+    border-radius: 4px; margin-left: 4px; font-weight: 700; }
+  .viewers { background: rgba(0,0,0,0.4); padding: 6px 10px; border-radius: 30px; font-size: 12px; }
+  .top-actions { margin-left: auto; display: flex; gap: 6px; }
+  .top-actions button { background: rgba(0,0,0,0.4); border: none; color: #fff;
+    padding: 6px 10px; border-radius: 30px; font-size: 12px; cursor: pointer; }
+  .follow-btn { background: #ff2c55 !important; font-weight: 600; }
+
+  /* === Бегущая строка подарков === */
+  .gift-ticker {
+    position: absolute; top: 90px; left: 8px; right: 8px;
+    background: linear-gradient(90deg, rgba(255,180,0,0.85), rgba(255,80,0,0.85));
+    color: #fff; font-size: 11px; padding: 6px 10px; border-radius: 20px;
+    z-index: 9; overflow: hidden; white-space: nowrap; height: 24px;
+    display: flex; align-items: center;
+  }
+  .gift-ticker .text { display: inline-block; padding-left: 100%; animation: scrollLeft 18s linear infinite; }
+  @keyframes scrollLeft { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+  /* === Топ донатов === */
+  .top-donate {
+    position: absolute; top: 125px; left: 8px;
+    background: rgba(0,0,0,0.4); padding: 4px 8px; border-radius: 12px;
+    font-size: 11px; z-index: 9;
+  }
+
+  /* === Чат === */
+  #chat {
+    position: absolute; left: 8px; right: 60px; bottom: 70px;
+    max-height: 45vh; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    z-index: 10; pointer-events: none;
+  }
+  .msg {
+    background: rgba(0,0,0,0.4); border-radius: 16px; padding: 6px 10px;
+    margin-top: 6px; font-size: 13px; max-width: 90%;
+    animation: msgIn 0.4s ease; word-break: break-word;
+    display: flex; align-items: flex-start; gap: 6px;
+  }
+  .msg img { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
+  .msg .name { color: #ffd700; font-weight: 600; margin-right: 4px; }
+  .msg .name.host { color: #ff4d6d; }
+  .msg.host { background: rgba(255,44,85,0.35); border: 1px solid #ff4d6d; align-self: flex-end; }
+  .msg .heart { color: #ff2c55; margin-left: 4px; }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  /* === Поток сердечек === */
+  #hearts { position: absolute; right: 0; bottom: 60px; width: 80px; height: 70vh;
+    pointer-events: none; z-index: 8; overflow: hidden; }
+  .heart-fly { position: absolute; bottom: 0; right: 20px; font-size: 24px;
+    animation: heartFly 3.5s ease-out forwards; }
+  @keyframes heartFly {
+    0% { transform: translate(0,0) scale(0.5); opacity: 0; }
+    15% { opacity: 1; transform: translate(0,-50px) scale(1); }
+    100% { transform: translate(var(--x,-30px),-70vh) scale(1.2); opacity: 0; }
+  }
+
+  /* === Нижняя панель === */
+  .bottom-bar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    display: flex; gap: 6px; align-items: center; z-index: 11;
+    background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+  }
+  #msgInput {
+    flex: 1; background: rgba(255,255,255,0.15); border: none; color: #fff;
+    padding: 10px 14px; border-radius: 30px; font-size: 13px; outline: none;
+  }
+  #msgInput::placeholder { color: rgba(255,255,255,0.6); }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); border: none; color: #fff;
+    font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn.like { background: rgba(255,44,85,0.3); }
+
+  /* === Кнопка фуллскрин и cam === */
+  .corner-btns { position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 8px; z-index: 11; }
+  .corner-btns button {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(0,0,0,0.4); color: #fff; border: none; font-size: 16px; cursor: pointer;
+  }
+
+  /* Toast */
+  .toast {
+    position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 20px;
+    font-size: 13px; z-index: 100; animation: toastIn 0.3s, toastOut 0.3s 1.7s forwards;
+  }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @keyframes toastOut { to { opacity: 0; } }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="video"><div class="streamer-emoji">💃</div></div>
+
+  <div class="top-bar">
+    <div class="streamer">
+      <img src="https://i.pravatar.cc/64?u=streamer" alt="">
+      <span class="name">小美主播</span>
+      <span class="live-tag">LIVE</span>
+    </div>
+    <div class="viewers">👁 <span id="viewerCount">0</span></div>
+    <div class="top-actions">
+      <button id="shareBtn">分享</button>
+      <button class="follow-btn" id="followBtn">+ 关注</button>
+      <button id="giftBtn">🎁</button>
+    </div>
+  </div>
+
+  <div class="gift-ticker"><span class="text" id="giftText">🎁 用户123 送出 99 朵玫瑰！ 主播好棒！ 欢迎新观众！</span></div>
+
+  <div class="top-donate">🏆 榜一: 大佬666 · 9999币</div>
+
+  <div id="chat"></div>
+
+  <div id="hearts"></div>
+
+  <div class="corner-btns">
+    <button id="camBtn" title="摄像头">📷</button>
+    <button id="fsBtn" title="全屏">⛶</button>
+  </div>
+
+  <div class="bottom-bar">
+    <input id="msgInput" type="text" placeholder="说点什么..." maxlength="100">
+    <button class="icon-btn" id="sendBtn">➤</button>
+    <button class="icon-btn like" id="likeBtn">❤️</button>
+  </div>
+</div>
+
+<!-- Подключаем твой файл с комментариями -->
+<script src="comments.js"></script>
+
+<script>
+/* ============================================================
+   КОНФИГУРАЦИЯ
+============================================================ */
+const CONFIG = {
+  USER_COUNT: 112,
+  MIN_USER_INTERVAL: 30000,   // 30 сек между сообщениями одного юзера
+  LIKE_PROBABILITY: 0.20,
+  PHASE1_DURATION: 2 * 60,    // 0-2 мин: 0 зрителей
+  PHASE2_DURATION: 8 * 60,    // 2-10 мин: рост до 35
+  PHASE2_TARGET: 35,
+  PHASE3_TARGET: 8000,        // финальный пик
+  PHASE3_DURATION: 25 * 60,   // 30-40 мин с момента 10й
+  MIN_VIEWERS_CMD2: 58,
+  MIN_MSG_PER_MIN_CMD2: 35
+};
+
+/* ============================================================
+   СОСТОЯНИЕ
+============================================================ */
+const state = {
+  startTime: Date.now(),
+  viewers: 0,
+  targetViewers: 0,
+  growthMultiplier: 1.0,   // команда 1 увеличивает, 2 уменьшает
+  freqMultiplier: 1.0,
+  msgInLastMinute: [],
+  likesInLastSec: 0,
+  cameraOn: true
+};
+
+/* ============================================================
+   ПОЛЬЗОВАТЕЛИ (генерация 112 шт.)
+============================================================ */
+const cnNames = ["小明","花花","可爱多","大宝","糖糖","阿强","萌萌","奶茶","小仙女","风的孩子",
+  "夜空","月亮","星辰","橙子","柚子","西瓜","苹果","樱桃","蜜桃","柠檬",
+  "云朵","海风","雨滴","雪花","彩虹","流星","太阳","月光","清风","明月"];
+const enNames = ["Lily","Tom","Jack","Anna","Mike","Sophie","Leo","Emma","Max","Zoe",
+  "Rose","Jay","Sky","Luna","Nova","Echo","Sage","Rain","Storm","Snow"];
+
+const users = [];
+for (let i = 0; i < CONFIG.USER_COUNT; i++) {
+  const useCN = Math.random() < 0.7;
+  const base = useCN ? cnNames[i % cnNames.length] : enNames[i % enNames.length];
+  users.push({
+    id: i,
+    name: base + (Math.random() < 0.5 ? Math.floor(Math.random()*999) : ""),
+    avatar: `https://i.pravatar.cc/40?u=user${i}`,
+    lastMessageTime: 0
+  });
+}
+
+/* ============================================================
+   ИСТОЧНИК КОММЕНТАРИЕВ
+   Если comments.js подключён - используем его, иначе fallback
+============================================================ */
+const fallbackComments = [
+  "主播好棒！❤️","太可爱了😍","加油加油！","Love it! 👍","666666",
+  "哈哈哈😂","主播唱歌真好听","打卡了","太美了","送花花🌹"
+];
+const COMMENTS = (typeof commentsList !== 'undefined' && commentsList.length) ? commentsList : fallbackComments;
+
+const randomEmojis = ["😂","❤️","🔥","👍","🌹","😍","✨","🎉","💖","👏"];
+
+/* ============================================================
+   VIEWERS — динамика зрителей
+============================================================ */
+function updateViewers() {
+  const elapsed = (Date.now() - state.startTime) / 1000; // сек
+
+  // вычисляем "натуральную" цель
+  let target;
+  if (elapsed < CONFIG.PHASE1_DURATION) {
+    target = 0;
+  } else if (elapsed < CONFIG.PHASE1_DURATION + CONFIG.PHASE2_DURATION) {
+    const t = (elapsed - CONFIG.PHASE1_DURATION) / CONFIG.PHASE2_DURATION;
+    target = t * CONFIG.PHASE2_TARGET;
+  } else {
+    const t = Math.min(1, (elapsed - CONFIG.PHASE1_DURATION - CONFIG.PHASE2_DURATION) / CONFIG.PHASE3_DURATION);
+    // логистический рост
+    const k = 6;
+    const logistic = 1 / (1 + Math.exp(-k * (t - 0.5)));
+    target = CONFIG.PHASE2_TARGET + (CONFIG.PHASE3_TARGET - CONFIG.PHASE2_TARGET) * logistic;
+  }
+
+  // применяем мультипликатор роста (команды)
+  target *= state.growthMultiplier;
+  state.targetViewers = Math.max(0, target);
+
+  // Плавное движение к target
+  const diff = state.targetViewers - state.viewers;
+  // Скорость подгона: 5% за тик + ограничение
+  state.viewers += diff * 0.05;
+  if (Math.abs(diff) < 0.5) state.viewers = state.targetViewers;
+
+  // Граничное условие cmd2: не ниже 58 (если уже было больше)
+  if (state.viewers > 0 && state.viewers < CONFIG.MIN_VIEWERS_CMD2 && state.targetViewers >= CONFIG.MIN_VIEWERS_CMD2) {
+    // ничего, target сам тянет
+  }
+
+  document.getElementById('viewerCount').textContent = formatNumber(Math.floor(state.viewers));
+}
+function formatNumber(n) {
+  if (n >= 10000) return (n/10000).toFixed(1) + '万';
+  return n.toString();
+}
+
+/* ============================================================
+   CHAT
+============================================================ */
+const chatEl = document.getElementById('chat');
+
+function pickRandomComment() {
+  let text = COMMENTS[Math.floor(Math.random() * COMMENTS.length)];
+  if (Math.random() < 0.3) text = randomEmojis[Math.floor(Math.random()*randomEmojis.length)] + " " + text;
+  if (Math.random() < 0.2) text = text + " " + randomEmojis[Math.floor(Math.random()*randomEmojis.length)];
+  return text;
+}
+
+function addMessage({name, avatar, text, isHost = false, liked = false}) {
+  const div = document.createElement('div');
+  div.className = 'msg' + (isHost ? ' host' : '');
+  div.innerHTML = `
+    ${avatar ? `<img src="${avatar}" alt="">` : ''}
+    <div><span class="name${isHost?' host':''}">${escapeHtml(name)}:</span>${escapeHtml(text)}${liked ? '<span class="heart">❤️</span>' : ''}</div>
+  `;
+  chatEl.appendChild(div);
+
+  // Лимит сообщений в DOM
+  while (chatEl.children.length > 30) chatEl.removeChild(chatEl.firstChild);
+
+  // Запись для статистики
+  state.msgInLastMinute.push(Date.now());
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function tickChat() {
+  // если нет зрителей - не пишем
+  if (state.viewers < 1) return;
+
+  // активные авторы пропорциональны зрителям, но <= 112
+  const activeUsers = Math.min(CONFIG.USER_COUNT, Math.max(1, Math.floor(state.viewers / 30) + 1));
+
+  // Сколько сообщений в секунду должно быть
+  // от 1-2/мин (мало зрителей) до 200+/мин (пик)
+  const targetPerMin = Math.min(250, Math.max(1, state.viewers * 0.04)) * state.freqMultiplier;
+  const perTick = targetPerMin / 60; // мы тикаем раз в секунду
+
+  // Граница cmd2
+  const effectivePerMin = Math.max(state.freqMultiplier < 1 ? CONFIG.MIN_MSG_PER_MIN_CMD2 : 0, targetPerMin);
+  const adjustedPerTick = effectivePerMin / 60;
+
+  // Случайно решаем, сколько сообщений выдать в этот тик
+  let toSend = Math.floor(adjustedPerTick) + (Math.random() < (adjustedPerTick % 1) ? 1 : 0);
+
+  for (let i = 0; i < toSend; i++) {
+    // Берём случайного юзера из активного пула
+    const candidates = users.slice(0, activeUsers);
+    const u = candidates[Math.floor(Math.random() * candidates.length)];
+    if (!u) continue;
+    if (Date.now() - u.lastMessageTime < CONFIG.MIN_USER_INTERVAL) continue;
+
+    u.lastMessageTime = Date.now();
+    const text = pickRandomComment();
+    const liked = Math.random() < CONFIG.LIKE_PROBABILITY;
+    addMessage({name: u.name, avatar: u.avatar, text, liked});
+    if (liked) spawnHeart();
+  }
+}
+
+/* ============================================================
+   LIKES — поток сердечек
+============================================================ */
+const heartsEl = document.getElementById('hearts');
+const heartIcons = ['❤️','💖','💕','💗','💘','🌹','✨'];
+
+function spawnHeart() {
+  const h = document.createElement('div');
+  h.className = 'heart-fly';
+  h.textContent = heartIcons[Math.floor(Math.random()*heartIcons.length)];
+  h.style.setProperty('--x', (Math.random()*120 - 60) + 'px');
+  h.style.right = (Math.random()*40 + 5) + 'px';
+  h.style.color = `hsl(${Math.random()*60+330}, 80%, 65%)`;
+  heartsEl.appendChild(h);
+  setTimeout(() => h.remove(), 3500);
+}
+
+function tickLikes() {
+  // лайков в секунду = зрители / 50
+  const n = Math.floor(state.viewers / 50);
+  state.likesInLastSec = n;
+  for (let i = 0; i < Math.min(n, 30); i++) {
+    setTimeout(spawnHeart, Math.random() * 1000);
+  }
+}
+
+/* ============================================================
+   COMMANDS
+============================================================ */
+function handleCommand(text) {
+  const trimmed = text.trim();
+  if (trimmed === '1') {
+    smoothMultiplier('growth', state.growthMultiplier, 2.0, 4000);
+    smoothMultiplier('freq',   state.freqMultiplier,   2.5, 4000);
+    showToast('⚡ 活跃度上升中...');
+    return true;
+  }
+  if (trimmed === '2') {
+    smoothMultiplier('growth', state.growthMultiplier, 0.4, 6000);
+    smoothMultiplier('freq',   state.freqMultiplier,   0.5, 6000);
+    showToast('🌙 平稳下降中...');
+    return true;
+  }
+  return false;
+}
+
+function smoothMultiplier(field, from, to, duration) {
+  const start = performance.now();
+  const key = field === 'growth' ? 'growthMultiplier' : 'freqMultiplier';
+  function step(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; // easeInOutQuad
+    state[key] = from + (to - from) * eased;
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/* ============================================================
+   HOST INPUT
+============================================================ */
+const input = document.getElementById('msgInput');
+const sendBtn = document.getElementById('sendBtn');
+
+function sendHostMessage() {
+  const text = input.value.trim();
+  if (!text) return;
+  if (handleCommand(text)) {
+    input.value = '';
+    return;
+  }
+  addMessage({name: '我 (主播)', avatar: 'https://i.pravatar.cc/40?u=streamer', text, isHost: true});
+  input.value = '';
+}
+sendBtn.onclick = sendHostMessage;
+input.addEventListener('keydown', e => { if (e.key === 'Enter') sendHostMessage(); });
+
+/* ============================================================
+   ОСТАЛЬНЫЕ КНОПКИ
+============================================================ */
+/* ============================================================
+   ОСТАЛЬНЫЕ КНОПКИ
+============================================================ */
+document.getElementById('likeBtn').onclick = () => {
+  // При клике хоста на сердечко - всплеск лайков
+  for (let i = 0; i < 8; i++) setTimeout(spawnHeart, i * 80);
+};
+
+document.getElementById('shareBtn').onclick = () => showToast('📤 已复制分享链接');
+document.getElementById('followBtn').onclick = (e) => {
+  const btn = e.currentTarget;
+  if (btn.textContent.includes('+')) {
+    btn.textContent = '已关注';
+    btn.style.background = 'rgba(255,255,255,0.2)';
+    showToast('💖 关注成功');
+  } else {
+    btn.textContent = '+ 关注';
+    btn.style.background = '#ff2c55';
+  }
+};
+document.getElementById('giftBtn').onclick = () => {
+  showToast('🎁 礼物面板 (演示)');
+  for (let i = 0; i < 15; i++) setTimeout(spawnHeart, i * 60);
+};
+
+/* === Камера toggle === */
+const videoEl = document.getElementById('video');
+document.getElementById('camBtn').onclick = () => {
+  state.cameraOn = !state.cameraOn;
+  videoEl.classList.toggle('off', !state.cameraOn);
+  showToast(state.cameraOn ? '📷 摄像头已开启' : '📷 摄像头已关闭');
+};
+
+/* === Полноэкранный режим === */
+document.getElementById('fsBtn').onclick = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen?.().catch(() => {});
+  } else {
+    document.exitFullscreen?.();
+  }
+};
+
+/* ============================================================
+   TOAST
+============================================================ */
+function showToast(text) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = text;
+  document.getElementById('app').appendChild(t);
+  setTimeout(() => t.remove(), 2000);
+}
+
+/* ============================================================
+   БЕГУЩАЯ СТРОКА ПОДАРКОВ
+============================================================ */
+const giftMessages = [
+  "🎁 大佬666 送出 99 朵玫瑰！",
+  "🎁 小天使 送出 跑车 1 辆！",
+  "🎁 神秘人 送出 城堡！",
+  "💖 欢迎新观众 进入直播间",
+  "🌹 主播加油！我们爱你！",
+  "🎉 恭喜主播粉丝突破 10000！",
+  "✨ 今晚直播超精彩！",
+  "🔥 榜一大哥又来啦！"
+];
+function updateGiftTicker() {
+  const text = giftMessages.sort(() => Math.random() - 0.5).slice(0, 4).join('  ·  ');
+  document.getElementById('giftText').textContent = text;
+}
+setInterval(updateGiftTicker, 18000);
+
+/* ============================================================
+   ГЛАВНЫЙ ЦИКЛ
+============================================================ */
+function mainTick() {
+  updateViewers();
+  tickChat();
+  tickLikes();
+
+  // очищаем статистику сообщений > 60 сек
+  const cutoff = Date.now() - 60000;
+  state.msgInLastMinute = state.msgInLastMinute.filter(t => t > cutoff);
+}
+setInterval(mainTick, 1000);
+
+/* === Дебаг-вывод раз в 5 сек === */
+setInterval(() => {
+  console.log(
+    `[STATS] 👁 viewers=${Math.floor(state.viewers)} | ` +
+    `💬 msg/min=${state.msgInLastMinute.length} | ` +
+    `❤️ likes/sec=${state.likesInLastSec} | ` +
+    `growth×${state.growthMultiplier.toFixed(2)} freq×${state.freqMultiplier.toFixed(2)}`
+  );
+}, 5000);
+
+/* ============================================================
+   СТАРТ
+============================================================ */
+console.log('🎬 Live stream simulation started');
+console.log(`💬 Loaded ${COMMENTS.length} comments from comments.js`);
+console.log('Commands: type "1" to boost, "2" to slow down');
+</script>
+
+</body>
+</html>
