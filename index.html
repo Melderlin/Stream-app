@@ -61,7 +61,7 @@
     padding: 6px 10px; border-radius: 30px; font-size: 12px; cursor: pointer; white-space: nowrap; }
   .follow-btn { background: #ff2c55 !important; font-weight: 600; }
 
-  /* === Бегущая строка подарков === */
+  /* === Бегущая строка === */
   .gift-ticker {
     position: absolute; top: 90px; left: 8px; right: 8px;
     background: linear-gradient(90deg, rgba(255,180,0,0.85), rgba(255,80,0,0.85));
@@ -72,7 +72,6 @@
   .gift-ticker .text { display: inline-block; padding-left: 100%; animation: scrollLeft 18s linear infinite; }
   @keyframes scrollLeft { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 
-  /* === Топ донатов === */
   .top-donate {
     position: absolute; top: 125px; left: 8px;
     background: rgba(0,0,0,0.4); padding: 4px 8px; border-radius: 12px;
@@ -81,9 +80,8 @@
 
   /* === Чат === */
   #chat {
-    position: absolute; left: 8px; right: 60px; bottom: 75px; /* освобождаем место для нижней панели */
-    max-height: 35vh; /* меньше высота на мобильных */
-    overflow: hidden;
+    position: absolute; left: 8px; right: 60px; bottom: 75px;
+    max-height: 35vh; overflow: hidden;
     display: flex; flex-direction: column; justify-content: flex-end;
     z-index: 10; pointer-events: none;
   }
@@ -103,21 +101,27 @@
   @keyframes msgIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
   /* === Поток сердечек === */
-  #hearts { position: absolute; right: 0; bottom: 60px; width: 180px; height: 70vh;
-    pointer-events: none; z-index: 8; overflow: hidden; }
-  .heart-fly { position: absolute; bottom: 0; right: 5px; font-size: 24px;
-    animation: heartFly 3.5s ease-out forwards; }
+  #hearts {
+    position: absolute; right: 0; bottom: 0;
+    width: 220px; height: 85vh; /* высота почти весь экран, чтобы не обрезались */
+    pointer-events: none; z-index: 8; overflow: hidden;
+  }
+  .heart-fly {
+    position: absolute; bottom: 15px; right: 20px; /* старт из правого нижнего угла */
+    font-size: 26px;
+    animation: heartFly 3.5s ease-out forwards;
+  }
   @keyframes heartFly {
     0% { transform: translate(0,0) scale(0.5); opacity: 0; }
-    15% { opacity: 1; transform: translate(0,-50px) scale(1); }
-    100% { transform: translate(var(--x,-30px),-70vh) scale(1.2); opacity: 0; }
+    10% { opacity: 1; transform: translate(0,-20px) scale(1); }
+    100% { transform: translate(var(--x, -40px), -85vh) scale(1.2); opacity: 0; }
   }
 
   /* === Нижняя панель === */
   .bottom-bar {
     position: absolute; bottom: 0; left: 0; right: 0;
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 8px));
-    display: flex; gap: 6px; align-items: center; z-index: 20; /* выше чата и сердечек */
+    display: flex; gap: 6px; align-items: center; z-index: 20;
     background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
   }
   #msgInput {
@@ -132,7 +136,7 @@
   }
   .icon-btn.like { background: rgba(255,44,85,0.3); }
 
-  /* === Кнопки справа (камера, звук, фулскрин) === */
+  /* === Кнопки справа === */
   .corner-btns { position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
     display: flex; flex-direction: column; gap: 8px; z-index: 11; }
   .corner-btns button {
@@ -140,7 +144,6 @@
     background: rgba(0,0,0,0.4); color: #fff; border: none; font-size: 16px; cursor: pointer;
   }
 
-  /* Toast */
   .toast {
     position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
     background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 20px;
@@ -173,11 +176,8 @@
   </div>
 
   <div class="gift-ticker"><span class="text" id="giftText">🎁 用户123 送出 99 朵玫瑰！ 主播好棒！ 欢迎新观众！</span></div>
-
   <div class="top-donate">🏆 榜一: 大佬666 · 9999币</div>
-
   <div id="chat"></div>
-
   <div id="hearts"></div>
 
   <div class="corner-btns">
@@ -194,7 +194,6 @@
   </div>
 </div>
 
-<!-- Подключаем файл с комментариями, если есть -->
 <script src="comments.js"></script>
 
 <script>
@@ -205,8 +204,10 @@ const CONFIG = {
   USER_COUNT: 112,
   MIN_USER_INTERVAL: 30000,
   LIKE_PROBABILITY: 0.20,
-  PHASE1_DURATION: 2 * 60,
-  PHASE2_DURATION: 8 * 60,
+  // Новые фазы: сразу 5 зрителей, рост до 35 за 8 минут
+  PHASE1_TARGET: 5,
+  PHASE1_DURATION: 10,       // 10 секунд на появление первых 5 зрителей
+  PHASE2_DURATION: 8 * 60,  // рост до 35 за 8 минут
   PHASE2_TARGET: 35,
   PHASE3_TARGET: 8000,
   PHASE3_DURATION: 25 * 60,
@@ -214,9 +215,6 @@ const CONFIG = {
   MIN_MSG_PER_MIN_CMD2: 35
 };
 
-/* ============================================================
-   СОСТОЯНИЕ
-============================================================ */
 const state = {
   startTime: Date.now(),
   viewers: 0,
@@ -252,9 +250,6 @@ for (let i = 0; i < CONFIG.USER_COUNT; i++) {
   });
 }
 
-/* ============================================================
-   ИСТОЧНИК КОММЕНТАРИЕВ
-============================================================ */
 const fallbackComments = [
   "主播好棒！❤️","太可爱了😍","加油加油！","Love it! 👍","666666",
   "哈哈哈😂","主播唱歌真好听","打卡了","太美了","送花花🌹"
@@ -361,27 +356,32 @@ function updateMuteButton() {
 muteBtn.onclick = toggleMute;
 
 /* ============================================================
-   VIEWERS
+   ЗРИТЕЛИ (изменённая динамика)
 ============================================================ */
 function updateViewers() {
   const elapsed = (Date.now() - state.startTime) / 1000;
   let target;
+
   if (elapsed < CONFIG.PHASE1_DURATION) {
-    target = 0;
+    // первые секунды: плавно до 5 зрителей
+    target = (elapsed / CONFIG.PHASE1_DURATION) * CONFIG.PHASE1_TARGET;
   } else if (elapsed < CONFIG.PHASE1_DURATION + CONFIG.PHASE2_DURATION) {
     const t = (elapsed - CONFIG.PHASE1_DURATION) / CONFIG.PHASE2_DURATION;
-    target = t * CONFIG.PHASE2_TARGET;
+    target = CONFIG.PHASE1_TARGET + t * (CONFIG.PHASE2_TARGET - CONFIG.PHASE1_TARGET);
   } else {
     const t = Math.min(1, (elapsed - CONFIG.PHASE1_DURATION - CONFIG.PHASE2_DURATION) / CONFIG.PHASE3_DURATION);
     const k = 6;
     const logistic = 1 / (1 + Math.exp(-k * (t - 0.5)));
     target = CONFIG.PHASE2_TARGET + (CONFIG.PHASE3_TARGET - CONFIG.PHASE2_TARGET) * logistic;
   }
+
   target *= state.growthMultiplier;
   state.targetViewers = Math.max(0, target);
+
   const diff = state.targetViewers - state.viewers;
   state.viewers += diff * 0.05;
   if (Math.abs(diff) < 0.5) state.viewers = state.targetViewers;
+
   document.getElementById('viewerCount').textContent = formatNumber(Math.floor(state.viewers));
 }
 
@@ -391,9 +391,10 @@ function formatNumber(n) {
 }
 
 /* ============================================================
-   CHAT
+   ЧАТ (сообщения с 5 зрителей и очень много)
 ============================================================ */
 const chatEl = document.getElementById('chat');
+const randomEmojis = ["😂","❤️","🔥","👍","🌹","😍","✨","🎉","💖","👏"];
 
 function pickRandomComment() {
   let text = COMMENTS[Math.floor(Math.random() * COMMENTS.length)];
@@ -410,12 +411,15 @@ function addMessage({name, avatar, text, isHost = false, liked = false}) {
     <div><span class="name${isHost?' host':''}">${escapeHtml(name)}:</span>${escapeHtml(text)}${liked ? '<span class="heart">❤️</span>' : ''}</div>
   `;
   chatEl.appendChild(div);
+
+  // Автоудаление через 7 секунд с плавным исчезновением
   setTimeout(() => {
     if (div.parentNode) {
       div.classList.add('fade-out');
       setTimeout(() => { if (div.parentNode) div.remove(); }, 500);
     }
   }, 7000);
+
   state.msgInLastMinute.push(Date.now());
 }
 
@@ -423,10 +427,14 @@ function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;'
 
 function tickChat() {
   if (state.viewers < 1) return;
-  const activeUsers = Math.min(CONFIG.USER_COUNT, Math.max(1, Math.floor(state.viewers / 30) + 1));
-  const targetPerMin = Math.min(250, Math.max(1, state.viewers * 0.04)) * state.freqMultiplier;
-  const effectivePerMin = Math.max(state.freqMultiplier < 1 ? CONFIG.MIN_MSG_PER_MIN_CMD2 : 0, targetPerMin);
+
+  // Активные пользователи: минимум 5
+  const activeUsers = Math.min(CONFIG.USER_COUNT, Math.max(5, Math.floor(state.viewers / 30) + 1));
+  // Частота сообщений: не менее 30 в минуту при любых зрителях > 0
+  const baseMsgPerMin = Math.min(250, Math.max(30, state.viewers * 0.6));
+  const effectivePerMin = baseMsgPerMin * state.freqMultiplier;
   const adjustedPerTick = effectivePerMin / 60;
+
   let toSend = Math.floor(adjustedPerTick) + (Math.random() < (adjustedPerTick % 1) ? 1 : 0);
   for (let i = 0; i < toSend; i++) {
     const candidates = users.slice(0, activeUsers);
@@ -442,7 +450,7 @@ function tickChat() {
 }
 
 /* ============================================================
-   LIKES
+   СЕРДЕЧКИ (чётко из правого нижнего угла)
 ============================================================ */
 const heartsEl = document.getElementById('hearts');
 const heartIcons = ['❤️','💖','💕','💗','💘','💝','💓','❤️‍🔥','💞'];
@@ -451,8 +459,10 @@ function spawnHeart() {
   const h = document.createElement('div');
   h.className = 'heart-fly';
   h.textContent = heartIcons[Math.floor(Math.random()*heartIcons.length)];
-  h.style.setProperty('--x', (Math.random()*120 - 60) + 'px');
-  h.style.right = (Math.random()*160 + 5) + 'px';
+  // Случайное смещение влево от правого края (0-80px), чтобы не накладывались идеально
+  const offsetX = Math.floor(Math.random() * 80);
+  h.style.right = (20 + offsetX) + 'px';
+  h.style.setProperty('--x', -(30 + Math.random() * 60) + 'px'); // сдвиг влево при полёте
   h.style.color = `hsl(${Math.random()*30+330}, 85%, 65%)`;
   heartsEl.appendChild(h);
   setTimeout(() => h.remove(), 3500);
@@ -460,7 +470,8 @@ function spawnHeart() {
 
 function tickLikes() {
   if (state.viewers < 1) return;
-  const n = Math.max(1, Math.floor(state.viewers / 8));
+  // Лайки начинаются с первого зрителя
+  const n = Math.max(1, Math.floor(state.viewers / 5));
   state.likesInLastSec = n;
   for (let i = 0; i < Math.min(n, 30); i++) {
     setTimeout(spawnHeart, Math.random() * 1000);
@@ -468,7 +479,7 @@ function tickLikes() {
 }
 
 /* ============================================================
-   COMMANDS
+   КОМАНДЫ
 ============================================================ */
 function handleCommand(text) {
   const trimmed = text.trim();
@@ -500,7 +511,7 @@ function smoothMultiplier(field, from, to, duration) {
 }
 
 /* ============================================================
-   HOST INPUT
+   ВВОД ХОСТА
 ============================================================ */
 const input = document.getElementById('msgInput');
 const sendBtn = document.getElementById('sendBtn');
@@ -518,9 +529,7 @@ function sendHostMessage() {
 sendBtn.onclick = sendHostMessage;
 input.addEventListener('keydown', e => { if (e.key === 'Enter') sendHostMessage(); });
 
-/* ============================================================
-   ОСТАЛЬНЫЕ КНОПКИ
-============================================================ */
+/* Остальные кнопки */
 document.getElementById('likeBtn').onclick = () => {
   for (let i = 0; i < 8; i++) setTimeout(spawnHeart, i * 80);
 };
@@ -551,9 +560,7 @@ document.getElementById('fsBtn').onclick = () => {
   }
 };
 
-/* ============================================================
-   TOAST
-============================================================ */
+/* Toast */
 function showToast(text) {
   const t = document.createElement('div');
   t.className = 'toast';
@@ -562,18 +569,11 @@ function showToast(text) {
   setTimeout(() => t.remove(), 2000);
 }
 
-/* ============================================================
-   БЕГУЩАЯ СТРОКА
-============================================================ */
+/* Бегущая строка */
 const giftMessages = [
-  "🎁 大佬666 送出 99 朵玫瑰！",
-  "🎁 小天使 送出 跑车 1 辆！",
-  "🎁 神秘人 送出 城堡！",
-  "💖 欢迎新观众 进入直播间",
-  "🌹 主播加油！我们爱你！",
-  "🎉 恭喜主播粉丝突破 10000！",
-  "✨ 今晚直播超精彩！",
-  "🔥 榜一大哥又来啦！"
+  "🎁 大佬666 送出 99 朵玫瑰！","🎁 小天使 送出 跑车 1 辆！","🎁 神秘人 送出 城堡！",
+  "💖 欢迎新观众 进入直播间","🌹 主播加油！我们爱你！","🎉 恭喜主播粉丝突破 10000！",
+  "✨ 今晚直播超精彩！","🔥 榜一大哥又来啦！"
 ];
 function updateGiftTicker() {
   const text = giftMessages.sort(() => Math.random() - 0.5).slice(0, 4).join('  ·  ');
@@ -602,9 +602,6 @@ setInterval(() => {
   );
 }, 5000);
 
-/* ============================================================
-   СТАРТ
-============================================================ */
 console.log('🎬 Live stream simulation started');
 console.log('Commands: type "1" to boost, "2" to slow down');
 </script>
